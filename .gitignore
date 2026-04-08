@@ -4,4 +4,4 @@ dist/
 .omc/
 .omx/
 .claude/
-.codex/
+.codex/*.png
