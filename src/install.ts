@@ -17,10 +17,8 @@ function red(s: string)   { return `\x1b[31m${s}\x1b[0m`; }
 
 const SKILLS = [
   'fetch-paper',
-  'paper-figure-extractor',
   'paper-result-comparison',
   'reproduce-paper-workflow',
-  'scientific-figure-qa',
   'web-scout',
 ];
 
