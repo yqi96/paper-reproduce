@@ -1,0 +1,32 @@
+{
+  "name": "@yqi96/paper-reproduce",
+  "version": "1.0.0",
+  "description": "Scientific paper reproduction skills for Claude Code — fetch, extract figures, reproduce workflows, and compare results",
+  "type": "module",
+  "bin": {
+    "paper-reproduce-install": "dist/install.js",
+    "paper-reproduce-uninstall": "dist/uninstall.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "agents"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "paper",
+    "reproduction",
+    "science",
+    "research",
+    "skill"
+  ],
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.8.3"
+  }
+}
