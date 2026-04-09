@@ -9,11 +9,8 @@ function green(s: string) { return `\x1b[32m${s}\x1b[0m`; }
 
 const SKILLS = [
   'fetch-paper',
-  'paper-figure-extractor',
   'paper-result-comparison',
   'reproduce-paper-workflow',
-  'scientific-figure-qa',
-  'web-scout',
 ];
 
 function del(filePath: string, label: string) {

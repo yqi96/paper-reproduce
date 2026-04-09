@@ -19,7 +19,6 @@ const SKILLS = [
   'fetch-paper',
   'paper-result-comparison',
   'reproduce-paper-workflow',
-  'web-scout',
 ];
 
 console.log('\npaper-reproduce installer\n');
@@ -139,7 +138,7 @@ rl.close();
 console.log('');
 if (fail === 0) {
   console.log(green(`Done: ${ok} items installed successfully.`));
-  console.log('\nUsage: /fetch-paper, /reproduce-paper-workflow, /paper-result-comparison, etc.');
+  console.log('\nUsage: /fetch-paper, /reproduce-paper-workflow, /paper-result-comparison');
   process.exit(0);
 } else {
   console.error(red(`Done with errors: ${ok} ok, ${fail} failed.`));
