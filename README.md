@@ -33,7 +33,7 @@ npx --package=@yqi96/paper-reproduce@latest paper-reproduce-uninstall
 ## Typical workflow
 
 ```
-/reproduce-paper-workflow 10.1038/s41586-021-03819-2 ~/papers/alphafold
+/reproduce-paper-workflow <doi> <path>
 ```
 
 ## Requirements

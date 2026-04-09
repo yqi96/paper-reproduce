@@ -139,7 +139,7 @@ rl.close();
 console.log('');
 if (fail === 0) {
   console.log(green(`Done: ${ok} items installed successfully.`));
-  console.log('\nUsage: /fetch-paper, /reproduce-paper-workflow, /paper-result-comparison');
+  console.log('\nUsage: /reproduce-paper-workflow <doi> <path>');
   process.exit(0);
 } else {
   console.error(red(`Done with errors: ${ok} ok, ${fail} failed.`));
