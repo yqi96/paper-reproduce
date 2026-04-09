@@ -94,6 +94,7 @@ if (omcInstalled) {
   if (answer.trim().toLowerCase() === 'y') {
     try {
       execSync('npm i -g oh-my-claude-sisyphus@latest', { stdio: 'inherit' });
+      execSync('omc setup', { stdio: 'inherit' });
       console.log(green('  ✓ OMC installed'));
       ok++;
     } catch {

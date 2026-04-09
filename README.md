@@ -36,15 +36,6 @@ npx --package=@yqi96/paper-reproduce@latest paper-reproduce-uninstall
 /reproduce-paper-workflow 10.1038/s41586-021-03819-2 ~/papers/alphafold
 ```
 
-This runs the full pipeline:
-
-1. **Step 0** — `/fetch-paper` downloads the PDF
-2. **Step 1** — Process extraction → `process_checklist.md`
-3. **Step 2** — Human confirms checklist
-4. **Step 3** — Ralph executes each story; `paper-alignment-verifier` audits each step against the paper before marking complete
-5. **Step 4** — `/paper-result-comparison` compares all results against the paper
-6. **Step 5** — `README.md` written
-
 ## Requirements
 
 - [Claude Code](https://claude.ai/code)
