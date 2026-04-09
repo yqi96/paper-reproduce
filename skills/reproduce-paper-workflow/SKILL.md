@@ -46,14 +46,12 @@ This workflow requires two external dependencies. Run `npm run setup` or install
 Required for `/ralph` execution in Step 3.
 
 - **Check**: `omc --version`
-- **Install**: `npm i -g oh-my-claude-sisyphus@latest`
 
 ### browser-pilot
 
 Required for `/web-scout` browser-based information retrieval in Step 1.
 
 - **Check**: Look for `mcpServers.browser` in `~/.claude.json`
-- **Install**: `npx --package=@yqi96/browser-pilot@latest browser-pilot-install`
 
 ---
 
@@ -118,6 +116,9 @@ Produce `<path>/process_checklist.md` with one entry per step:
 - **tool**: {for agent executor: python | r | sympy | lean | browser | general} (omit for human executor)
 - **artifact_path**: artifacts/S01/{filename} (filled during execution)
 - **status**: pending
+- **acceptance_criteria**:
+  - paper-alignment-verifier <CATEGORY> PASS: <specific process claim traced to paper section>
+  - paper-alignment-verifier <CATEGORY> PASS: <another claim if applicable>
 
 ---
 
@@ -128,9 +129,35 @@ Produce `<path>/process_checklist.md` with one entry per step:
 **Field definitions:**
 - `executor`: `agent` for anything the agent can execute (code, browser, file operations, symbolic computation); `human` for wet lab work, physical experiments, surveys, procurement, field work
 - `type`: `process` for intermediate steps; `result` for steps that directly produce a paper-reported figure, table, or conclusion
-- `tool`: for agent-executor steps, specifies the primary tool: `python` (uv), `r`, `sympy` (symbolic math), `lean` (formal proof), `browser` (web tasks), `general`
+- `tool`: for agent-executor steps, specifies the primary tool. Choose based on what the step primarily does:
+
+  | Tool | Use when |
+  |------|----------|
+  | `python` | Computation, data processing, figure generation, statistical analysis, or **scripted downloads** (direct URL, DOI-resolved link, wget/requests — no login required) |
+  | `r` | Statistical analysis or visualization when the paper explicitly uses R |
+  | `sympy` | Symbolic math verification — checking that a formula in code matches the paper's equation exactly |
+  | `lean` | Formal proof verification for theoretical papers |
+  | `browser` | Interactive web navigation required — login portals (e.g. NASA Earthdata, NSIDC), dataset discovery when DOI does not resolve to a direct download, or pages that require clicking through a web UI |
+  | `general` | Shell operations, file format conversion, or mixed tasks not primarily handled by the above |
+
+  **Decision rule for data download steps**: use `python` if the data has a direct, scriptable download URL (DOI landing page → direct file link, Zenodo, Figshare, GitHub release). Use `browser` only if the download requires interactive login or navigation that cannot be scripted.
+
+  **Fallback chain when the primary tool fails:**
+
+  | Primary fails because… | Fallback |
+  |------------------------|---------|
+  | `python` download → 403/404/redirect | Run `/web-scout <doi>` to find the real download URL, then retry `python` with the discovered URL |
+  | `python` download → requires login (401/auth wall) | Switch to `browser` to navigate the portal and download interactively |
+  | `browser` login portal → credentials unavailable or portal broken | Mark step `blocked`; use `AskUserQuestion` to request the file from the human |
+  | `browser` navigation → page structure changed / link not found | Run `/web-scout <doi>` to rediscover current URL; if still unavailable, mark `blocked` |
+  | `python` computation → missing package | `uv add <package>` then re-run; if package unavailable, try an equivalent library and document the substitution in `process_checklist.md` |
+  | `python` computation → data file malformed or wrong format | Inspect file header with `python` first; if format mismatch, re-download or request human to provide correct file |
+  | Any tool → data simply does not exist publicly | Mark step `blocked`; document in `process_checklist.md` with reason and what was tried |
+
+  **`web-scout` vs `browser`**: `web-scout` is a discovery sub-tool — use it to find where data lives (correct URL, login page structure, repository layout). `browser` is an execution tool — use it to actually perform interactive steps (login, form submission, click-through download). Typical sequence: `web-scout` discovers → `browser` executes.
 - `artifact_path`: the designated save path — filled in during execution, not left blank after
 - `status`: `pending` → `complete` | `fail` | `blocked`
+- `acceptance_criteria`: list of `paper-alignment-verifier <CATEGORY> PASS:` criteria generated from the paper's Methods section while the paper is in context. Each criterion is a specific, verifiable process claim (formula, data source, sample size, step order) traced to a paper section. Categories: METHOD, DATA, SAMPLE, STEPS, FIGURES, TABLES, CONCLUSIONS. See "Paper-Alignment Criteria for PRD Stories" section below.
 
 **What counts as a process step:**
 - Data collection, download, preprocessing
@@ -139,6 +166,21 @@ Produce `<path>/process_checklist.md` with one entry per step:
 - Mathematical derivations and proof verification (theoretical papers)
 - Surveys, interviews, literature searches
 - Any intermediate computation that feeds into a result
+
+**Generating acceptance criteria:**
+For each step, write 1-4 `paper-alignment-verifier` criteria while reading the paper. Each criterion must:
+1. Use the exact format: `paper-alignment-verifier <CATEGORY> PASS: <claim>`
+2. Reference a specific, verifiable process fact from the paper (formula, dataset DOI, sample size N, processing order)
+3. Be traceable to a paper section (the `paper_source` field provides the reference)
+
+Category selection guide:
+- DATA steps (download, obtain): use `DATA` category — cite the dataset name, DOI, version
+- Computation steps (formulas, algorithms): use `METHOD` category — cite the formula from Methods
+- Filtering/sampling steps: use `SAMPLE` category — cite the N and filtering criteria
+- Multi-step processing: use `STEPS` category — cite the ordering from Methods
+- Figure generation: use `FIGURES` category — cite figure count and panel structure from captions
+- Table generation: use `TABLES` category — cite table structure from paper
+- Conclusion verification: use `CONCLUSIONS` category — cite the quantitative claim
 
 **Sub-tools available:**
 - `/web-scout <doi> --dir=<path>` — for finding and verifying data sources; results become a process step artifact
@@ -156,6 +198,7 @@ Present `process_checklist.md` to the human via `AskUserQuestion` and ask them t
 3. `type` classifications are correct (process vs result)
 4. `tool` assignments are correct for agent-executor steps
 5. Step order and dependencies make sense
+6. `acceptance_criteria` entries use the exact `paper-alignment-verifier <CATEGORY> PASS:` format and reference specific, verifiable claims from the paper (not generic summaries)
 
 The human may edit the checklist directly. After any edits, confirm the updated checklist is saved.
 
@@ -165,9 +208,11 @@ The human may edit the checklist directly. After any edits, confirm the updated 
 
 ### Step 3 — Ralph Execution (requires OMC — see Prerequisites)
 
-Run `/ralph --dir=<path>`. Ralph reads `process_checklist.md` and generates PRD stories internally — no pre-generated `prd.json` file required.
+Run `/ralph --dir=<path>`. Ralph reads `process_checklist.md` and generates PRD stories using the `acceptance_criteria` from each checklist step as the story's acceptance criteria. The criteria are already in `paper-alignment-verifier <CATEGORY> PASS:` trigger format — ralph copies them verbatim into each story's criteria list, do not rephrase or reformat.
 
 **PRD generation is idempotent**: if a step already has `status: complete` in the checklist, ralph skips that story. This provides automatic recovery — if the workflow is interrupted, re-run `/reproduce-paper-workflow <doi> --dir=<path>` and ralph resumes from the first non-complete step.
+
+**Pre-flight**: Before executing any stories, ralph validates that every `acceptance_criteria` entry in `process_checklist.md` starts with `paper-alignment-verifier `, followed by one of `METHOD`, `DATA`, `SAMPLE`, `STEPS`, `FIGURES`, `TABLES`, or `CONCLUSIONS`, followed by ` PASS:`. Any entry failing this check is a format error — ralph halts and reports the malformed entries before proceeding.
 
 For each story:
 
@@ -178,8 +223,14 @@ For each story:
   - `lean`: write formal proofs for theorem verification
   - `browser`/`general`: use available agent tools
 - Save all artifacts to `artifacts/<step_id>/` — **never delete intermediate artifacts**
-- Update `process_checklist.md` status to `complete` after each story passes
-- Each story verified by `paper-alignment-verifier` before marked complete
+- After completing the story work, **MUST** invoke `paper-alignment-verifier` as a subagent for each `acceptance_criteria` entry before marking the story complete. For each criterion:
+  1. Pass the criterion line verbatim: `paper-alignment-verifier <CATEGORY> PASS: <claim>`
+  2. Add `Code: <absolute path to the script or artifact that implements this step>`
+  3. Add `Paper: <absolute path to the paper PDF>`
+  4. For DATA and SAMPLE criteria, also add `Data: <absolute path to the downloaded or processed data file>`
+  5. Wait for the verifier verdict
+- If **all** criteria return PASS: update `process_checklist.md` status to `complete`
+- If **any** criterion returns FAIL or BLOCKED: do NOT mark complete — fix the issue and re-invoke the verifier for that criterion before proceeding
 
 #### Human-Executor Stories
 Use `AskUserQuestion` to delegate to the human. The agent must:
