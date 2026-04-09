@@ -1,7 +1,7 @@
 ---
 name: fetch-paper
-description: Fetch a paper PDF given a DOI. Primary: Sci-Hub mirrors. Fallback 1: web-scout searches arXiv/bioRxiv/Zenodo/institutional repos. Fallback 2: AskUserQuestion asks user to provide PDF. Produces paper_access_log.md recording the source.
-argument-hint: "<doi> [--dir=<path>]"
+description: Fetch a paper PDF given a DOI. Primary: Sci-Hub mirrors. Fallback 1: browser searche. Fallback 2: AskUserQuestion asks user to provide PDF. Produces paper_access_log.md recording the source.
+argument-hint: "<doi> <path>"
 user-invocable: true
 context: fork
 agent: general-purpose
@@ -13,30 +13,8 @@ $ARGUMENTS
 
 Download a paper PDF given a DOI. Uses a three-stage fallback chain:
 1. **Sci-Hub** mirrors (primary)
-2. **web-scout** — searches arXiv, bioRxiv, Zenodo, and institutional repositories for open-access versions
+2. **web-scout** — searches google, publisher and institutional repositories for open-access versions
 3. **AskUserQuestion** — asks the user to provide the PDF directly
-
-## ⚠️ Rate Limit Warning
-
-**Do NOT download papers rapidly.** Sci-Hub will ban your IP if you send too many
-requests in a short time. Rules:
-- Wait **≥6 seconds** between individual downloads
-- For batches, the script enforces a 3s delay between mirror attempts
-- If downloading multiple papers, add manual pauses between invocations
-
-## When to Activate
-
-- User says "fetch paper", "download paper", "get PDF", "paper_access_log"
-- Step 0 of the reproduction pipeline (paper access gate before writing any code)
-
-## Arguments
-
-```
-/fetch-paper <doi> [--dir=<path>]
-```
-
-- `doi` — e.g. `10.1038/s41586-021-03819-2`
-- `--dir` — where to save the PDF and `paper_access_log.md` (defaults to `.`)
 
 ## Workflow
 
@@ -45,39 +23,30 @@ requests in a short time. Rules:
 Run the installed script to attempt download from Sci-Hub mirrors:
 
 ```bash
-uv run ~/.paper-reproduce/scripts/fetch_paper.py "<doi>" "<output_dir>"
+uv run ~/.paper-reproduce/scripts/fetch_paper.py "$0" "$1"
 ```
 
-The script:
-1. Tries `sci-hub.ru` → `sci-hub.st` → `sci-hub.se` in order
-2. Uses 4 HTML strategies to find the PDF URL (meta tag, object tag, download div, regex)
-3. Downloads with `Referer` header set to the mirror
-4. Validates the file starts with `%PDF` (rejects HTML error pages)
-5. Saves as `{sanitized_doi}.pdf` in `output_dir`
+**Do NOT download papers rapidly.** Sci-Hub will ban your IP if you send too many
+requests in a short time. Rules:
+- Wait **≥6 seconds** between individual downloads
+- If downloading multiple papers, add manual pauses between invocations
 
 **If Stage 1 succeeds**: record `source: sci_hub` in `paper_access_log.md`, skip to Write Log.
 
 **If Stage 1 fails**: proceed to Stage 2.
 
-### Stage 2 — web-scout (open access search)
+### Stage 2 — browser (open access search)
 
-Use `/web-scout` to search for an open-access version of the paper:
+Invoke `/browser` to search for an open-access version of the paper:
 
 ```
-/web-scout "DOI: <doi> open access PDF" --sites arXiv bioRxiv Zenodo institutional
+/browser "Find DOI: $0 open access PDF"
 ```
-
-Search targets (in order):
-- `arxiv.org` — preprints and author manuscripts
-- `biorxiv.org` / `medrxiv.org` — biology/medicine preprints
-- `zenodo.org` — research data and open publications
-- Institutional repositories (author's university repository)
-- `semanticscholar.org`, `europepmc.org` — aggregators that link open PDFs
 
 If an open-access PDF URL is found:
-1. Download it using `Bash` (curl or requests)
+1. Download it using `Bash` (curl, wget or requests)
 2. Validate the downloaded file starts with `%PDF`
-3. Save to `output_dir` as `{sanitized_doi}.pdf`
+3. Save to `$1` as `$0.pdf`
 4. Record `source: open_access` and the URL in `paper_access_log.md`
 
 **If Stage 2 succeeds**: record `source: open_access`, skip to Write Log.
@@ -88,7 +57,7 @@ If an open-access PDF URL is found:
 
 Use `AskUserQuestion` to ask the user:
 
-> "Could not find an open-access version of **{doi}** via Sci-Hub or public repositories.
+> "Could not find an open-access version of **$0** via Sci-Hub or public repositories.
 >
 > Please provide the PDF:
 > - Download manually and provide the local file path, OR
@@ -96,15 +65,16 @@ Use `AskUserQuestion` to ask the user:
 
 Options: [I have a local file path] [I have a download URL] [Cannot obtain — abort]
 
-If user provides a path: copy or symlink to `output_dir/{sanitized_doi}.pdf`, validate `%PDF` header.
+If user provides a path: copy or symlink to `$1/$0.pdf`, validate `%PDF` header.
 If user provides a URL: download it, validate, save.
-If user cannot obtain: write `paper_access_log.md` with `Status: NO_ACCESS` and `sys.exit(1)`.
+If user obtains the paper successfully: record `source: user_provided` in `paper_access_log.md`.
+If user cannot obtain: write `paper_access_log.md` with `Status: NO_ACCESS`.
 
 Record `source: user_provided` in `paper_access_log.md`.
 
 ### Write `paper_access_log.md`
 
-After any successful stage, write `{output_dir}/paper_access_log.md`:
+After any successful stage or failure, write `{output_dir}/paper_access_log.md`:
 
 ```markdown
 # Paper Access Log
@@ -143,6 +113,4 @@ On failure:
 
 - **Script**: `~/.paper-reproduce/scripts/fetch_paper.py` — installed external script
 - **SSL**: always `verify=False` — Sci-Hub mirrors use self-signed certs
-- **Mirror order**: `sci-hub.ru` first (most reliable), then `.st`, `.se`
-- **Fallback order**: Sci-Hub → web-scout → user — each stage only attempted if the previous fails
-- **Do NOT use** Semantic Scholar or Unpaywall as primary — unreliable for paywalled papers
+- **Fallback order**: Sci-Hub → /browser → user — each stage only attempted if the previous fails
