@@ -1,6 +1,6 @@
 {
   "name": "@yqi96/paper-reproduce",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Scientific paper reproduction skills for Claude Code — fetch, extract figures, reproduce workflows, and compare results",
   "type": "module",
   "bin": {
